@@ -7,9 +7,58 @@
 #include <netinet/in.h>
 
 #define BUF_SIZE 100
+#define NAME_TIP "Please enter your name: "
+#define COMMAND_TIP "> "
+
+struct User;
+
+struct User
+{
+   char name[100];
+};
+
+struct Client
+{
+   int sock;
+   struct User user;
+};
+
+// 接收一个连接
+void createClient(int sock)
+{
+   struct Client client;
+   client.sock = sock;
+
+   char buffer[BUF_SIZE] = ""; //缓冲区
+   char rcvMsg[200] = "";
+   for (;;)
+   {
+      // 设置用户名
+      if (strcmp(client.user.name, "") == 0)
+      {
+         write(client.sock, NAME_TIP, sizeof(NAME_TIP));   // 发送数据
+         int strLen = read(client.sock, buffer, BUF_SIZE); //接收客户端发来的数据
+         strcpy(client.user.name, buffer);
+         strcpy(rcvMsg, "您的用户名为: ");
+         strcat(rcvMsg, client.user.name);
+         write(client.sock, rcvMsg, sizeof(rcvMsg)); // 发送数据
+      }
+      else
+      {
+         write(client.sock, COMMAND_TIP, sizeof(COMMAND_TIP)); // 发送数据
+         int strLen = read(client.sock, buffer, BUF_SIZE);     //接收客户端发来的数据
+         strcpy(rcvMsg, "已收到消息: ");
+         strcat(rcvMsg, buffer);
+         write(client.sock, rcvMsg, sizeof(rcvMsg)); // 发送数据
+      }
+      memset(buffer, 0, BUF_SIZE); //重置缓冲区
+      memset(rcvMsg, 0, 200);      //重置缓冲区
+   }
+}
 
 int main()
 {
+
    //创建套接字
    int serv_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
    //将套接字和IP、端口绑定
@@ -26,22 +75,8 @@ int main()
    socklen_t clnt_addr_size = sizeof(clnt_addr);
    for (;;)
    {
-      int clnt_sock = accept(serv_sock, (struct sockaddr *)&clnt_addr, &clnt_addr_size);
-      //向客户端发送数据
-      char buffer[BUF_SIZE] = {0}; //缓冲区
-      for (;;)
-      {
-         int strLen = read(clnt_sock, buffer, BUF_SIZE); //接收客户端发来的数据
-         printf("receive: %s", buffer);
-         if (strcmp(buffer, "hello") == 0)
-         {
-            printf("hi");
-         }
-
-         write(clnt_sock, buffer, sizeof(buffer)); // 发送数据
-         memset(buffer, 0, BUF_SIZE);              //重置缓冲区
-      }
-      // close(clnt_sock);
+      int client_sock = accept(serv_sock, (struct sockaddr *)&clnt_addr, &clnt_addr_size);
+      createClient(client_sock);
    }
 
    //关闭套接字
