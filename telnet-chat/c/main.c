@@ -7,9 +7,21 @@
 #include <netinet/in.h>
 #include <pthread.h>
 
-#define BUF_SIZE 100
-#define NAME_TIP "Please enter your name: "
+#define BUF_SIZE 200
+#define HELP_TIP "\
+Chat Room.\n\n\
+Usage:\n\
+  /command [args...]\n\n\
+Commands:\n\
+   register <username> <password>    create an account\n\
+   login <username> <password>       login with your username and password\n\
+   logout                            logout your account\n\
+   join <room_id>                    join a room\n\
+   leave <room_id>                   leave a room\n\
+   quit                              quit current room\n\
+"
 #define COMMAND_TIP "> "
+#define UNKNOWN_COMMAND_TIP "Unknown Command.\n"
 #define BASE_IP "127.0.0.1"
 #define PORT 1234
 
@@ -22,6 +34,7 @@ struct User;
 
 struct User
 {
+   int ID;
    char username[30];
    char display[30];
    char password[18];
@@ -34,6 +47,13 @@ struct Client
    struct User user;
 };
 
+struct Room
+{
+   int ID;
+   char name[30];
+   int users[100];
+};
+
 struct SockClient
 {
    int serverSock;
@@ -43,6 +63,18 @@ struct SockClient
 
 void createClient(void *ptr);
 void createSock();
+
+// user interface
+struct User createUser(char username[30], char password[18]);
+struct User getUserByUsername(char username[30]);
+struct User getUserByID(int id);
+int checkUser(char username[30], char password[18]);
+int setUserRole(int id, enum ROLE role);
+
+// room interface
+struct Room createRoom(char name[30]);
+struct Room listRoom();
+int joinRoom(int userID, int roomID);
 
 struct User users[10];
 struct SockClient sock;
@@ -83,6 +115,16 @@ void createSock()
    sock.clnt_addr_size = sizeof(clnt_addr);
 }
 
+void handlerMessage(struct Client client, char *msg) {
+   if (msg[0] == '/')
+   {
+      write(client.sock, msg, sizeof(msg));
+   } else
+   {
+      write(client.sock, UNKNOWN_COMMAND_TIP, sizeof(UNKNOWN_COMMAND_TIP));
+   }
+}
+
 // 接收一个连接
 void createClient(void *ptr)
 {
@@ -90,36 +132,20 @@ void createClient(void *ptr)
    client.sock = *(int*)ptr;
 
    char buffer[BUF_SIZE] = ""; //缓冲区
-   char rcvMsg[200] = "";
+   char rcvMsg[BUF_SIZE] = "";
+   write(client.sock, HELP_TIP, sizeof(HELP_TIP)); // 发送数据
    while (1)
    {
-      // 设置用户名
-      if (strcmp(client.user.username, "") == 0)
-      {
-         write(client.sock, NAME_TIP, sizeof(NAME_TIP));   // 发送数据
-         int strLen = read(client.sock, buffer, BUF_SIZE); //接收客户端发来的数据
-         if (strLen <= 0) { // 客户端断开连接
-            close(client.sock);
-            break;
-         }
-         strcpy(client.user.username, buffer);
-         strcpy(rcvMsg, "您的用户名为: ");
-         strcat(rcvMsg, client.user.username);
-         write(client.sock, rcvMsg, sizeof(rcvMsg)); // 发送数据
+      write(client.sock, COMMAND_TIP, sizeof(COMMAND_TIP)); // 发送数据
+      int strLen = read(client.sock, buffer, BUF_SIZE); //接收客户端发来的数据
+      if (strLen <= 0) {
+         close(client.sock);
+         break;
       }
-      else
-      {
-         write(client.sock, COMMAND_TIP, sizeof(COMMAND_TIP)); // 发送数据
-         int strLen = read(client.sock, buffer, BUF_SIZE); //接收客户端发来的数据
-         if (strLen <= 0) {
-            close(client.sock);
-            break;
-         }
-         strcpy(rcvMsg, "已收到消息: ");
-         strcat(rcvMsg, buffer);
-         write(client.sock, rcvMsg, sizeof(rcvMsg)); // 发送数据
-      }
-      memset(buffer, 0, BUF_SIZE); //重置缓冲区
-      memset(rcvMsg, 0, 200); //重置缓冲区
+      // handler message
+      strcat(rcvMsg, buffer);
+      handlerMessage(client, rcvMsg);
+      memset(buffer, 0, BUF_SIZE);
+      memset(rcvMsg, 0, BUF_SIZE);
    }
 }
