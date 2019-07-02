@@ -19,6 +19,7 @@ Commands:\n\
    join <room_id>                    join a room\n\
    leave <room_id>                   leave a room\n\
    quit                              quit current room\n\
+   help                              get help tip\n\
 "
 #define COMMAND_TIP "> "
 #define UNKNOWN_COMMAND_TIP "Unknown Command.\n"
@@ -115,13 +116,84 @@ void createSock()
    sock.clnt_addr_size = sizeof(clnt_addr);
 }
 
+int countChar(char *msg, char c)
+{
+   int count;
+   for (int i = 0; msg[i] != '\0'; ++i)
+   {
+      if (msg[i] == c)
+      {
+         count++;
+      }
+   }
+   return count;
+}
+
+void trim(char *msg)
+{
+   for (int i = 0; msg[i] != '\0'; ++i)
+   {
+      if (msg[i] == '\r' || msg[i] == '\n')
+      {
+         msg[i] = 0;
+      }
+   }
+}
+
+int split(char dst[][80], char* str, const char* spl)
+{
+    int n = 0;
+    char *result = NULL;
+    result = strtok(str, spl);
+    while( result != NULL )
+    {
+        strcpy(dst[n++], result);
+        result = strtok(NULL, spl);
+    }
+    return n;
+}
+
+void parseCommand(int sock, char commands[][80])
+{
+   if (strcmp(commands[0], "/login") == 0)
+   {
+      char tip[] = "登录成功\n";
+      write(sock, tip, strlen(tip));
+   }else if (strcmp(commands[0], "/register") == 0)
+   {
+      
+   }else if (strcmp(commands[0], "/logout") == 0)
+   {
+      
+   }else if (strcmp(commands[0], "/join") == 0)
+   {
+         
+   }else if (strcmp(commands[0], "/leave") == 0)
+   {
+      
+   }else if (strcmp(commands[0], "/quit") == 0)
+   {
+      
+   }else if (strcmp(commands[0], "/help") == 0)
+   {
+      write(sock, HELP_TIP, strlen(HELP_TIP));
+   }else
+   {
+      write(sock, UNKNOWN_COMMAND_TIP, strlen(UNKNOWN_COMMAND_TIP));
+   }
+}
+
 void handlerMessage(struct Client client, char *msg) {
    if (msg[0] == '/')
    {
-      write(client.sock, msg, sizeof(msg));
+      trim(msg);
+      int space = countChar(msg, ' ');
+      char dst[space+1][80];
+      int num = split(dst, msg, " ");
+      parseCommand(client.sock, dst);
    } else
    {
-      write(client.sock, UNKNOWN_COMMAND_TIP, sizeof(UNKNOWN_COMMAND_TIP));
+      write(client.sock, UNKNOWN_COMMAND_TIP, strlen(UNKNOWN_COMMAND_TIP));
    }
 }
 
@@ -133,11 +205,11 @@ void createClient(void *ptr)
 
    char buffer[BUF_SIZE] = ""; //缓冲区
    char rcvMsg[BUF_SIZE] = "";
-   write(client.sock, HELP_TIP, sizeof(HELP_TIP)); // 发送数据
+   write(client.sock, HELP_TIP, strlen(HELP_TIP));
    while (1)
    {
-      write(client.sock, COMMAND_TIP, sizeof(COMMAND_TIP)); // 发送数据
-      int strLen = read(client.sock, buffer, BUF_SIZE); //接收客户端发来的数据
+      write(client.sock, COMMAND_TIP, strlen(COMMAND_TIP));
+      int strLen = read(client.sock, buffer, BUF_SIZE);
       if (strLen <= 0) {
          close(client.sock);
          break;
