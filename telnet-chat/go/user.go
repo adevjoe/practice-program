@@ -43,7 +43,7 @@ func getUserByUsername(username string) User {
 	return User{}
 }
 
-func register(username, password string) error {
+func register(username, password string, level UserLevel) error {
 	password, err := HashPassword(password)
 	if err != nil {
 		return err
@@ -51,6 +51,7 @@ func register(username, password string) error {
 	if u, ok := GlobalUsers.LoadOrStore(username, User{
 		Username: username,
 		Password: password,
+		Level:    level,
 	}); ok {
 		return errors.New(fmt.Sprintf("%s is already registed.", username))
 	} else if _, ok := u.(User); ok {

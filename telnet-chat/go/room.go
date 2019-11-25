@@ -8,4 +8,4 @@ type Room struct {
 	Limit  int
 }
 
-const DefaultRoomLimit int = 2
+const DefaultRoomLimit int = 5

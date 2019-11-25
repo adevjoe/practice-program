@@ -47,6 +47,7 @@ func (c *Client) Send(msg string) {
 }
 
 func (c *Client) Close() {
+	c.LeaveRoom()
 	c.Done <- true
 	removeClient(c.UUID)
 	_ = c.Conn.Close()
@@ -66,4 +67,14 @@ func (c *Client) Chat(msg string) {
 		return
 	}
 	sendRoom(c.User.Username, c.CurrentRoom.ID, msg)
+}
+
+func (c *Client) LeaveRoom() {
+	if !c.Auth() {
+		return
+	}
+	if c.CurrentRoom.ID == -1 {
+		return
+	}
+	leaveRoom(c.User.Username, c.CurrentRoom.ID)
 }

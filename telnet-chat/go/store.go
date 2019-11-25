@@ -126,3 +126,12 @@ func sendRoom(username string, roomID int, msg string) {
 		}
 	}
 }
+
+func checkLogin(username string) bool {
+	for _, c := range GlobalClient.Clients {
+		if c.User.Username == username {
+			return true
+		}
+	}
+	return false
+}

@@ -42,7 +42,7 @@ func handleConnection(c *Client) {
 		msg, err := c.Receive()
 		if err != nil {
 			if err == io.EOF {
-				log.Printf("client %s disconnect.\n", c.UUID)
+				c.Close()
 				return
 			}
 			log.Printf("client %s connect error: %v\n", c.UUID, err)
@@ -69,8 +69,20 @@ func processMsg(c *Client, msg string) int {
 			c.Send("Command error.")
 			break
 		}
-		if checkPassword(command.Args[0], command.Args[1]) {
-			c.User = getUserByUsername(command.Args[0])
+		var (
+			username = command.Args[0]
+			password = command.Args[1]
+		)
+		if c.Auth() {
+			c.Send("You're logged in.")
+			break
+		}
+		if checkPassword(username, password) {
+			if checkLogin(username) {
+				c.Send("You're logged in other session.")
+				break
+			}
+			c.User = getUserByUsername(username)
 			c.Send("Login successful.")
 		} else {
 			c.Send("Login fail.")
@@ -80,7 +92,7 @@ func processMsg(c *Client, msg string) int {
 			c.Send("Command error.")
 			break
 		}
-		err := register(command.Args[0], command.Args[1])
+		err := register(command.Args[0], command.Args[1], MEMBER)
 		if err != nil {
 			c.Send(fmt.Sprintf("Error: %s", err.Error()))
 		} else {
@@ -91,12 +103,14 @@ func processMsg(c *Client, msg string) int {
 			c.Send("Need login.")
 			break
 		}
-		c.Send(fmt.Sprintf("Username: %s", c.User.Username))
+		c.Send(fmt.Sprintf("Username -> %s, Level -> %s", c.User.Username,
+			c.User.Level))
 	case "logout":
 		if !c.Auth() {
 			c.Send("Need login.")
 			break
 		}
+		c.Close()
 		c.User = User{}
 		c.Send("Logout successful.")
 	case "rooms":
