@@ -76,5 +76,5 @@ func (c *Client) LeaveRoom() {
 	if c.CurrentRoom.ID == -1 {
 		return
 	}
-	leaveRoom(c.User.Username, c.CurrentRoom.ID)
+	_ = leaveRoom(c.User.Username, c.CurrentRoom.ID)
 }

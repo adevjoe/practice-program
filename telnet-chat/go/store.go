@@ -7,16 +7,22 @@ import (
 	"sync"
 )
 
-var GlobalUsers sync.Map
-var GlobalRooms = Rooms{
-	Rooms:   make([]Room, 0),
-	RoomMap: sync.Map{},
-	Mux:     &sync.Mutex{},
-}
-var GlobalClient = Clients{
-	Clients: make([]*Client, 0),
-	Mux:     &sync.Mutex{},
-}
+// Global var
+var (
+	GlobalUsers sync.Map
+	GlobalRooms = Rooms{
+		RoomMap:     sync.Map{},
+		RoomNameMap: sync.Map{},
+	}
+	GlobalCurrentRoomsID = &CurrentRoomsID{
+		ID:  -1,
+		Mux: &sync.Mutex{},
+	}
+	GlobalClient = Clients{
+		Clients: make([]*Client, 0),
+		Mux:     &sync.Mutex{},
+	}
+)
 
 type Clients struct {
 	Clients []*Client
@@ -24,32 +30,52 @@ type Clients struct {
 }
 
 type Rooms struct {
-	Rooms   []Room
-	RoomMap sync.Map
-	Mux     *sync.Mutex
+	RoomMap     sync.Map
+	RoomNameMap sync.Map
 }
 
-func createRoomStore(name string, ) (Room, error) {
-	GlobalRooms.Mux.Lock()
-	defer GlobalRooms.Mux.Unlock()
-	count := len(GlobalRooms.Rooms)
+type CurrentRoomsID struct {
+	ID  int
+	Mux *sync.Mutex
+}
+
+func (c *CurrentRoomsID) Next() int {
+	if c.Mux == nil {
+		return -1
+	}
+	c.Mux.Lock()
+	defer c.Mux.Unlock()
+	c.ID += 1
+	return c.ID
+}
+
+func createRoomStore(name string) (Room, error) {
 	room := Room{
-		ID:     count,
+		ID:     GlobalCurrentRoomsID.Next(),
 		Name:   name,
 		Active: true,
 		Limit:  DefaultRoomLimit,
 	}
 	r := getStoreRoomByName(name)
-	if r.Name != "" {
+	if r.Exist() {
 		return Room{}, errors.New("room exist")
 	}
-	GlobalRooms.Rooms = append(GlobalRooms.Rooms, room)
-	GlobalRooms.RoomMap.Store(room.Name, room)
+	GlobalRooms.RoomMap.Store(room.ID, room)
+	GlobalRooms.RoomNameMap.Store(room.Name, room.ID)
 	return room, nil
 }
 
 func getStoreRoomByName(name string) Room {
-	if r, ok := GlobalRooms.RoomMap.Load(name); ok {
+	if r, ok := GlobalRooms.RoomNameMap.Load(name); ok {
+		if id, ok := r.(int); ok {
+			getStoreRoomByID(id)
+		}
+	}
+	return Room{}
+}
+
+func getStoreRoomByID(id int) Room {
+	if r, ok := GlobalRooms.RoomMap.Load(id); ok {
 		if room, ok := r.(Room); ok {
 			return room
 		}
@@ -57,42 +83,49 @@ func getStoreRoomByName(name string) Room {
 	return Room{}
 }
 
-func getStoreRoomByID(id int) Room {
-	if len(GlobalRooms.Rooms)-1 >= id {
-		return GlobalRooms.Rooms[id]
-	}
-	return Room{}
-}
-
 func listRooms() []string {
 	var list []string
-	for _, value := range GlobalRooms.Rooms {
-		if value.Active {
-			list = append(list, fmt.Sprintf("%d-%s(%d/%d)",
-				value.ID, value.Name, getRoomUser(value.ID), value.Limit))
+	GlobalRooms.RoomMap.Range(func(key, value interface{}) bool {
+		if room, ok := value.(Room); ok {
+			if room.Active {
+				list = append(list, fmt.Sprintf("%d-%s(%d/%d)",
+					room.ID, room.Name, getRoomUser(room.ID), room.Limit))
+			}
 		}
-	}
+		return true
+	})
 	return list
 }
 
-func joinRoom(username string, roomID int) {
-	GlobalRooms.Mux.Lock()
-	defer GlobalRooms.Mux.Unlock()
-	if len(GlobalRooms.Rooms)-1 >= roomID {
-		GlobalRooms.Rooms[roomID].User = append(GlobalRooms.Rooms[roomID].User, username)
-	}
-}
-
-func leaveRoom(username string, roomID int) {
-	GlobalRooms.Mux.Lock()
-	defer GlobalRooms.Mux.Unlock()
-	if len(GlobalRooms.Rooms)-1 >= roomID {
-		for key, r := range GlobalRooms.Rooms[roomID].User {
-			if r == username {
-				GlobalRooms.Rooms[roomID].User = append(GlobalRooms.Rooms[roomID].User[:key], GlobalRooms.Rooms[roomID].User[key+1:]...)
+func joinRoom(username string, roomID int) error {
+	if data, ok := GlobalRooms.RoomMap.Load(roomID); ok {
+		if room, ok := data.(Room); ok {
+			if !room.Exist() {
+				return errors.New("room none")
 			}
+			room.User = append(room.User, username)
+			GlobalRooms.RoomMap.Store(roomID, room)
 		}
 	}
+	return nil
+}
+
+func leaveRoom(username string, roomID int) error {
+	room := getStoreRoomByID(roomID)
+	for key, u := range room.User {
+		if u == username {
+			room.User = append(room.User[:key], room.User[key+1:]...)
+			GlobalRooms.RoomMap.Store(roomID, room)
+		}
+	}
+	GlobalClient.Mux.Lock()
+	defer GlobalClient.Mux.Unlock()
+	for key, c := range GlobalClient.Clients {
+		if c.CurrentRoom.ID == roomID {
+			GlobalClient.Clients[key].CurrentRoom = Room{ID: -1}
+		}
+	}
+	return nil
 }
 
 func getRoomUser(id int) int {
@@ -125,6 +158,15 @@ func sendRoom(username string, roomID int, msg string) {
 			}(c, r)
 		}
 	}
+}
+
+func deleteRoom(roomID int) {
+	room := getStoreRoomByID(roomID)
+	for _, u := range room.User {
+		_ = leaveRoom(u, roomID)
+	}
+	GlobalRooms.RoomMap.Delete(roomID)
+	GlobalRooms.RoomNameMap.Delete(room.Name)
 }
 
 func checkLogin(username string) bool {

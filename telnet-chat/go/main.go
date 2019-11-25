@@ -140,7 +140,14 @@ func processMsg(c *Client, msg string) int {
 				c.Send("This room is full up.")
 				break
 			}
-			joinRoom(c.User.Username, roomID)
+			err := joinRoom(c.User.Username, roomID)
+			if err != nil {
+				c.Send(err.Error())
+				break
+			}
+		} else {
+			c.Send("Room none.")
+			break
 		}
 		c.CurrentRoom = room
 		c.Send(fmt.Sprintf("Welcome to room %d.", roomID))
@@ -153,11 +160,34 @@ func processMsg(c *Client, msg string) int {
 			c.Send("You are not in the room.")
 			break
 		}
-		leaveRoom(c.User.Username, c.CurrentRoom.ID)
-		c.Send(fmt.Sprintf("Leave room %d.", c.CurrentRoom.ID))
-		c.CurrentRoom = Room{ID: -1}
+		id := c.CurrentRoom.ID
+		_ = leaveRoom(c.User.Username, c.CurrentRoom.ID)
+		c.Send(fmt.Sprintf("Leave room %d.", id))
 	case "create":
+		if !c.Auth() || !c.User.IsAdmin() {
+			c.Send("You are not allow to do that.")
+			break
+		}
+		name := command.Args[0]
+		room, err := createRoomStore(name)
+		if err != nil {
+			c.Send(err.Error())
+			break
+		}
+		c.Send(fmt.Sprintf("You created a room. (ID: %d, Name: %s)",
+			room.ID, room.Name))
 	case "del", "delete":
+		if !c.Auth() || !c.User.IsAdmin() {
+			c.Send("You are not allow to do that.")
+			break
+		}
+		roomID, err := strconv.Atoi(command.Args[0])
+		if err != nil {
+			c.Send("room error.")
+			break
+		}
+		deleteRoom(roomID)
+		c.Send(fmt.Sprintf("Room %d deleted.", roomID))
 	case "exit":
 		c.Close()
 		return -1

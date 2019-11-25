@@ -9,3 +9,11 @@ type Room struct {
 }
 
 const DefaultRoomLimit int = 5
+
+func (r *Room) Exist() bool {
+	return r.ID > -1 && r.Name != ""
+}
+
+func (r *Room) UserNum() int {
+	return len(r.User)
+}
