@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"net"
 	"time"
 )
@@ -21,13 +22,16 @@ func NewServer(conn net.Conn) *Server {
 	return s
 }
 
-func (s *Server) Receive() (string, error) {
+func (s *Server) Receive() string {
 	data := make([]byte, 1000)
 	_, err := s.Conn.Read(data)
 	if err != nil {
-		return "", err
+		if err == io.EOF {
+			s.Close()
+			return ""
+		}
 	}
-	return string(data), nil
+	return string(data)
 }
 
 func (s *Server) Send(msg string) {
@@ -41,7 +45,7 @@ func (s *Server) Close() {
 	_ = s.Conn.Close()
 }
 
-func HttpServerAndListen(addr string) error {
+func HttpServerAndListen(addr, path string) error {
 	nl, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
