@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 func handleConnection(s *Server) {
 	go func(s *Server) {
 		for {
@@ -10,20 +12,24 @@ func handleConnection(s *Server) {
 		}
 	}(s)
 	for {
-		data := s.Receive()
-		if len(data) > 0 {
-			print(data)
-			s.Send(`HTTP/1.1 200 OK
-Date: Sat, 09 Oct 2010 14:28:02 GMT
-Server: http-index
-Accept-Ranges: bytes
-Content-Length: 12
-Content-Type: text/txt
-
-Hello World!
-`)
-			s.Close()
+		request, err := s.Receive()
+		// handler request
+		response := Response{
+			HTTPVersion:  "HTTP/1.1",
+			Status:       400,
+			ReasonPhrase: "receive request error",
+			Header: map[string]string{
+				"Server":         "http-index",
+				"Content-Type":   "text/html",
+				"Content-Length": "",
+			},
+			Body: err.Error(),
 		}
+		if err != nil {
+			response.Header["content-Length"] = fmt.Sprintf("%d", len(err.Error()))
+		}
+		_ = s.WriteResponse(response)
+		s.Close()
 	}
 }
 

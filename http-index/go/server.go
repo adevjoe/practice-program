@@ -22,20 +22,29 @@ func NewServer(conn net.Conn) *Server {
 	return s
 }
 
-func (s *Server) Receive() string {
+func (s *Server) Receive() (request Request, err error) {
 	data := make([]byte, 1000)
-	_, err := s.Conn.Read(data)
+	_, err = s.Conn.Read(data)
 	if err != nil {
 		if err == io.EOF {
 			s.Close()
-			return ""
+			return
 		}
+		return
 	}
-	return string(data)
+	return parseToRequest(data)
 }
 
-func (s *Server) Send(msg string) {
-	_, _ = s.Conn.Write([]byte(msg))
+func (s *Server) WriteResponse(response Response) error {
+	b, err := parseResponse(response)
+	if err != nil {
+		return err
+	}
+	_, err = s.Conn.Write([]byte(msg))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Server) Close() {
@@ -58,4 +67,12 @@ func HttpServerAndListen(addr, path string) error {
 		}
 		go handleConnection(NewServer(conn))
 	}
+}
+
+func parseToRequest(b []byte) (request Request, err error) {
+
+}
+
+func parseResponse(response Response) (b []byte, err error) {
+
 }
