@@ -1,14 +1,17 @@
 package main
 
 import (
-	"io"
+	"bufio"
+	"errors"
 	"net"
+	"strings"
 	"time"
 )
 
 type Server struct {
 	Conn      net.Conn
-	Done      chan bool
+	BuffR     *bufio.Reader
+	BuffW     *bufio.Writer
 	StartTime time.Time
 	EndTime   time.Time
 }
@@ -16,41 +19,77 @@ type Server struct {
 func NewServer(conn net.Conn) *Server {
 	s := &Server{
 		Conn:      conn,
-		Done:      make(chan bool),
+		BuffR:     bufio.NewReader(conn),
+		BuffW:     bufio.NewWriter(conn),
 		StartTime: time.Now(),
 	}
 	return s
 }
 
-func (s *Server) Receive() (request Request, err error) {
-	data := make([]byte, 1000)
-	_, err = s.Conn.Read(data)
+func (s *Server) Receive() (*Request, error) {
+	// handler simple GET request, for HTTP/1.1
+
+	// read request line
+	request := new(Request)
+	rl, err := s.ReadLine()
 	if err != nil {
-		if err == io.EOF {
-			s.Close()
-			return
-		}
-		return
+		return request, err
 	}
-	return parseToRequest(data)
+
+	request.Method, request.URI, request.HTTPVersion, err = parseRequestLine(rl)
+	if err != nil {
+		return request, err
+	}
+
+	// TODO read header
+
+	return request, nil
 }
 
-func (s *Server) WriteResponse(response Response) error {
+func parseRequestLine(line []byte) (method, uri, version string, err error) {
+	s := strings.Split(string(line), " ")
+	// valid s for request line
+	if len(s) != 3 {
+		return "", "", "", errors.New("invalid request line")
+	}
+	return s[0], s[1], s[2], nil
+}
+
+func (s *Server) ReadLine() ([]byte, error) {
+	var line []byte
+	for {
+		l, more, err := s.BuffR.ReadLine()
+		if err != nil {
+			return nil, err
+		}
+
+		if line == nil && !more {
+			return l, nil
+		}
+		line = append(line, l...)
+		if !more {
+			break
+		}
+	}
+	return line, nil
+}
+
+func (s *Server) WriteResponse(response *Response) error {
 	b, err := parseResponse(response)
 	if err != nil {
 		return err
 	}
-	_, err = s.Conn.Write([]byte(msg))
+	_, err = s.BuffW.Write(b)
 	if err != nil {
 		return err
 	}
+	_ = s.BuffW.Flush()
 	return nil
 }
 
 func (s *Server) Close() {
 	s.EndTime = time.Now()
 	//log.Printf("conn %v cost: %s\n", s.Conn.RemoteAddr(), s.EndTime.Sub(s.StartTime))
-	s.Done <- true
 	_ = s.Conn.Close()
 }
 
@@ -69,10 +108,6 @@ func HttpServerAndListen(addr, path string) error {
 	}
 }
 
-func parseToRequest(b []byte) (request Request, err error) {
-
-}
-
-func parseResponse(response Response) (b []byte, err error) {
-
+func parseResponse(response *Response) (b []byte, err error) {
+	return []byte("HTTP/1.1 200 OK\r\n"), nil
 }

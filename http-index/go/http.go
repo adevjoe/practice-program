@@ -2,8 +2,8 @@
 package main
 
 type Request struct {
-	Method      Method
-	Path        string
+	Method      string
+	URI         string
 	HTTPVersion string
 	Host        string
 	Header      map[string]string
@@ -19,7 +19,6 @@ type Response struct {
 }
 
 type (
-	Method     string
 	StatusCode uint16
 )
 
@@ -29,15 +28,15 @@ func (code StatusCode) ToReasonPhrase() string {
 
 const (
 	// method
-	MethodGet     Method = "GET"
-	MethodHead    Method = "HEAD"
-	MethodPost    Method = "POST"
-	MethodPut     Method = "PUT"
-	MethodPatch   Method = "PATCH"
-	MethodDelete  Method = "DELETE"
-	MethodConnect Method = "CONNECT"
-	MethodOptions Method = "OPTIONS"
-	MethodTrace   Method = "TRACE"
+	MethodGet     = "GET"
+	MethodHead    = "HEAD"
+	MethodPost    = "POST"
+	MethodPut     = "PUT"
+	MethodPatch   = "PATCH"
+	MethodDelete  = "DELETE"
+	MethodConnect = "CONNECT"
+	MethodOptions = "OPTIONS"
+	MethodTrace   = "TRACE"
 
 	// status code
 	StatusOK          StatusCode = 200
