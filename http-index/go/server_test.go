@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
 	"testing"
 )
 
@@ -21,4 +24,11 @@ func TestServer_ParseRequestLine(t *testing.T) {
 	} else {
 		t.Error()
 	}
+}
+
+func TestA(t *testing.T) {
+	var a uint16 = 200
+	b := make([]byte, 2)
+	binary.LittleEndian.PutUint16(b, a)
+	fmt.Println(bytes.TrimRight(b, "\x00"))
 }

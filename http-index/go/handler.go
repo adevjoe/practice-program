@@ -1,31 +1,42 @@
 package main
 
-import "fmt"
+import (
+	"log"
+	"time"
+)
 
 func handleConnection(s *Server) {
 	for {
+		startTime := time.Now()
 		request, err := s.Receive()
-		fmt.Println(request)
+
 		// handler request
-		response := &Response{
-			HTTPVersion:  "HTTP/1.1",
-			Status:       400,
-			ReasonPhrase: "receive request error",
-			Header: map[string]string{
-				"Server":         "http-index",
-				"Content-Type":   "text/html",
-				"Content-Length": "",
-			},
-		}
+		response := NewResponse()
+
 		if err != nil {
-			response.Header["content-Length"] = fmt.Sprintf("%d", len(err.Error()))
+			serverError(response, err)
+		} else {
+			handleFile(request, response)
 		}
+
+		cost := time.Now().Sub(startTime)
+		log.Printf(" |\t %d |\t %s |\t %s | %s\t %s",
+			response.Status, cost.String(), request.RemoteHost, request.Method,
+			request.URI)
 		_ = s.WriteResponse(response)
 		s.Close()
 		break
 	}
 }
 
-func handleFile() {
+// TODO handle file
+func handleFile(request *Request, response *Response) {
+	response.SetStatus(StatusOK)
+	response.SetBody([]byte("Hello World!"))
+}
 
+// server error
+func serverError(response *Response, err error) {
+	response.SetStatus(StatusServerError)
+	response.SetBody(nil)
 }
