@@ -122,7 +122,7 @@ func (s *Server) Close() {
 	_ = s.Conn.Close()
 }
 
-func HttpServerAndListen(addr, path string) error {
+func HttpServerAndListen(addr string) error {
 	nl, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err

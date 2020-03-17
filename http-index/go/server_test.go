@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -31,4 +33,26 @@ func TestA(t *testing.T) {
 	b := make([]byte, 2)
 	binary.LittleEndian.PutUint16(b, a)
 	fmt.Println(bytes.TrimRight(b, "\x00"))
+}
+
+func TestListFile(t *testing.T) {
+	dir := "./www"
+	if f, err := os.Stat(dir); os.IsExist(err) || err == nil {
+		t.Logf("name: %s, isDir: %t", f.Name(), f.IsDir())
+		files, err := ioutil.ReadDir(f.Name())
+		if err != nil {
+			t.Error(err)
+		}
+		for _, file := range files {
+			t.Logf("name: %s, isDir: %t", file.Name(), file.IsDir())
+		}
+	} else {
+		os.Mkdir(dir, os.ModePerm)
+	}
+}
+
+func TestOpenFile(t *testing.T) {
+	if b, err := ioutil.ReadFile("./www/media/zelda.jpg"); os.IsExist(err) || err == nil {
+		t.Logf("file size: %d", len(b))
+	}
 }
