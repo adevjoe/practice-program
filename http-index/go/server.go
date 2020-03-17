@@ -42,8 +42,6 @@ func (s *Server) Receive() (*Request, error) {
 		return request, err
 	}
 
-	// TODO read header
-
 	return request, nil
 }
 
