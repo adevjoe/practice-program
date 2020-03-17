@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -39,18 +40,13 @@ func handleFile(request *Request, response *Response) {
 	// check file
 	if f, err := os.Stat(path); os.IsExist(err) || err == nil {
 		if f.IsDir() { // list dir
-			var s []string
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
 				serverError(response, err)
 				return
 			}
-			for _, info := range files {
-				s = append(s, info.Name())
-			}
 
-			// TODO list file use html and '<a>' link
-			response.SetBody([]byte(fmt.Sprintf("%s", s)))
+			response.SetBody([]byte(returnFileList(files, request.URI)))
 		} else { // open file
 			b, err := ioutil.ReadFile(path)
 			if err != nil {
@@ -66,8 +62,50 @@ func handleFile(request *Request, response *Response) {
 	response.SetStatus(StatusOK)
 }
 
+func returnFileList(list []os.FileInfo, uri string) string {
+	var (
+		dirs  []os.FileInfo
+		files []os.FileInfo
+		s     string
+	)
+
+	for _, info := range list {
+		if info.IsDir() {
+			dirs = append(dirs, info)
+		} else {
+			files = append(files, info)
+		}
+	}
+
+	s += "<html><style>body{margin: 50px}</style><body>"
+	// is root
+	if uri != "" && uri != "/" {
+		s += fmt.Sprintf("<a href=\"%s\">%s</a>", getLastDir(uri), "../")
+	}
+	s += "</br>"
+	for _, dir := range dirs {
+		s += fmt.Sprintf("<a href=\"%s\">%s</a></br>", strings.TrimRight(uri, "/")+"/"+dir.Name(),
+			dir.Name())
+	}
+	for _, f := range files {
+		s += fmt.Sprintf("<a href=\"%s\">%s</a></br>", strings.TrimRight(uri, "/")+"/"+f.Name(),
+			f.Name())
+	}
+	//s += fmt.Sprintf()
+	s += "</body></html>"
+	return s
+}
+
 // server error
 func serverError(response *Response, err error) {
 	response.SetStatus(StatusServerError)
 	response.SetBody([]byte(err.Error()))
+}
+
+func getLastDir(path string) string {
+	s := path[:strings.LastIndex(strings.TrimRight(path, "/"), "/")]
+	if s == "" {
+		s = "/"
+	}
+	return s
 }

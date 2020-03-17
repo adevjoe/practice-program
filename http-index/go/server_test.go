@@ -56,3 +56,12 @@ func TestOpenFile(t *testing.T) {
 		t.Logf("file size: %d", len(b))
 	}
 }
+
+func TestGetLastDir(t *testing.T) {
+	path := "/media/a"
+	path2 := "/media/"
+	path3 := "/media"
+	t.Log(getLastDir(path))
+	t.Log(getLastDir(path2))
+	t.Log(getLastDir(path3))
+}
